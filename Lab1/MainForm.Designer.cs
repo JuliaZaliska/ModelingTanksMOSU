@@ -117,7 +117,6 @@
             // 
             // tmModel
             // 
-            tmModel.Interval = 1000;
             tmModel.Tick += tmModel_Tick;
             // 
             // tbSetZ1

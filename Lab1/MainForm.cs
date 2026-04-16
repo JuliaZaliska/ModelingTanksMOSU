@@ -8,8 +8,8 @@ namespace Lab1
                G_in1, G_in2, G_12, G_out1, G_out2,
                time = 0, dt = 0.01,
                z1 = 0, z2 = 0,
-               min_z = 0, max_z1 = 5,
-                          max_z2 = 5;
+               min_z = 0, max_z1 = 20,
+                          max_z2 = 20;
         double setpoint1, setpoint2, kp1, kp2, ki1, ki2, kd1, kd2;
         bool isAuto = false;
         private PIDBlock pid1, pid2;
@@ -186,12 +186,12 @@ namespace Lab1
 
         private void btnSpeed1_Click(object sender, EventArgs e)
         {
-            tmModel.Interval = 1000;
+            tmModel.Interval = 100;
         }
 
         private void btnSpeed10_Click(object sender, EventArgs e)
         {
-            tmModel.Interval = 100;
+            tmModel.Interval = 10;
         }
 
         private void btnMode_Click(object sender, EventArgs e)
