@@ -144,8 +144,8 @@ namespace Lab1
             G_in2 = x_in2;
 
             G_out2 = (z2 > 0.01) ? x_out2 : 0;
-            G_out1 = (z1 > 0.01) ? 0.2 : 0;
-            G_12 = (z1 > 0.01) ? 0.2 : 0;
+            G_out1 = (z1 > 0.01) ? 0.1 : 0;
+            G_12 = (z1 > 0.01) ? 0.1 : 0;
 
             z1 = tank1.Calc(G_in1 - G_12 - G_out1);
             z2 = tank2.Calc(G_in2 + G_12 - G_out2);
