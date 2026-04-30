@@ -74,6 +74,7 @@
             tbSetKp2 = new TextBox();
             label1 = new Label();
             label2 = new Label();
+            btnOptimize = new Button();
             ((System.ComponentModel.ISupportInitialize)pbTanks).BeginInit();
             ((System.ComponentModel.ISupportInitialize)chMain).BeginInit();
             ((System.ComponentModel.ISupportInitialize)trbXin1).BeginInit();
@@ -478,12 +479,23 @@
             label2.TabIndex = 40;
             label2.Text = "z2";
             // 
+            // btnOptimize
+            // 
+            btnOptimize.Location = new Point(384, 183);
+            btnOptimize.Name = "btnOptimize";
+            btnOptimize.Size = new Size(108, 44);
+            btnOptimize.TabIndex = 41;
+            btnOptimize.Text = "Optimize";
+            btnOptimize.UseVisualStyleBackColor = true;
+            btnOptimize.Click += btnOptimize_Click;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = SystemColors.HighlightText;
             ClientSize = new Size(1326, 721);
+            Controls.Add(btnOptimize);
             Controls.Add(label2);
             Controls.Add(label1);
             Controls.Add(tbSetPointZ2);
@@ -581,5 +593,6 @@
         private TextBox tbSetKp2;
         private Label label1;
         private Label label2;
+        private Button btnOptimize;
     }
 }

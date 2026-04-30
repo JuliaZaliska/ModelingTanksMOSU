@@ -1,4 +1,6 @@
-using Lab1.Blocks;
+﻿using Lab1.Blocks;
+using Lab1.Methods;
+using System.Text;
 
 namespace Lab1
 {
@@ -119,13 +121,13 @@ namespace Lab1
             double.TryParse(tbSetPointZ1.Text, out setpoint1);
             double.TryParse(tbSetPointZ2.Text, out setpoint2);
 
-            pid1.Kp = kp1; 
-            pid1.Ki = ki1; 
+            pid1.Kp = kp1;
+            pid1.Ki = ki1;
             pid1.Kd = kd1;
             pid1.Setpoint = setpoint1;
 
-            pid2.Kp = kp2; 
-            pid2.Ki = ki2; 
+            pid2.Kp = kp2;
+            pid2.Ki = ki2;
             pid2.Kd = kd2;
             pid2.Setpoint = setpoint2;
 
@@ -200,6 +202,42 @@ namespace Lab1
             btnMode.Text = isAuto ? "Auto" : "Manual";
             trbXin1.Enabled = !isAuto;
             trbXin2.Enabled = !isAuto;
+        }
+
+        private void btnOptimize_Click(object sender, EventArgs e)
+        {
+            var gaussMethod = new GaussMethod();
+
+            double[] initialPoint = { -5, 5 };
+            double tolerance = 1e-6;
+            int maxIterations = 1000;
+            double initialStep = 0.1;
+            double stepReduction = 0.5;
+            
+            GaussResult result = gaussMethod.Optimize(GaussMethod.Variant1Function, initialPoint, tolerance, maxIterations, initialStep, stepReduction);
+
+            var message = new StringBuilder();
+
+            message.AppendLine("Метод Гауса");
+            message.AppendLine("Цільова функція: I = u1^2 + u1*u2 + u2^3 + u1");
+            message.AppendLine($"Початкова точка: u1(0) = {initialPoint[0]}, u2(0) = {initialPoint[1]}");
+            message.AppendLine();
+            message.AppendLine($"Параметри пошуку: h = {initialStep}, eps = {tolerance:E1}, maxIterations = {maxIterations}");
+            message.AppendLine();
+            message.AppendLine($"Результат: u1* = {result.BestPoint[0]}, u2* = {result.BestPoint[1]}");
+            message.AppendLine($"Imin = {result.BestValue}");
+            message.AppendLine($"Кількість ітерацій = {result.Iterations}");
+            message.AppendLine($"Остаточний крок = {result.FinalStep:E2}");
+            message.AppendLine($"Збіжність = {(result.Converged ? "так" : "ні")}");
+            message.AppendLine();
+            message.AppendLine("Журнал ітерацій:");
+
+            foreach (string line in result.IterationLog)
+            {
+                message.AppendLine(line);
+            }
+            
+            MessageBox.Show(message.ToString(), "Результати оптимізації");
         }
     }
 }
