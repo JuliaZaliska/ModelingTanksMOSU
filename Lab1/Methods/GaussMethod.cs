@@ -8,7 +8,7 @@ namespace Lab1.Methods
 {
     public class GaussMethod
     {
-        public GaussResult Optimize(Func<double[], double> func, 
+        public GaussResult Optimize(Func<double[], double> func,
             double[] initialPoint, double tolerance, int maxIterations, double initialStep, double stepReduction)
         {
             int n = initialPoint.Length;
@@ -83,13 +83,6 @@ namespace Lab1.Methods
 
             return result;
         }
-        private static string FormatNumber(double value)
-{
-    if (Math.Abs(value) < 1e-12)
-        value = 0;
-
-    return value.ToString("0.############");
-}
 
         public static double Variant1Function(double[] u)
         {
