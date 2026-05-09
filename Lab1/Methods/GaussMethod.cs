@@ -89,7 +89,6 @@ namespace Lab1.Methods
             double u1 = u[0];
             double u2 = u[1];
 
-            // I = u1^2 + u1*u2 + u2^3 + u1
             return u1 * u1 + u1 * u2 + u2 * u2 * u2 + u1;
         }
     }
