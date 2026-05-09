@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Lab1.Methods
+﻿namespace Lab1.Methods
 {
     public class GaussMethod
     {
-        public GaussResult Optimize(Func<double[], double> func,
-            double[] initialPoint, double tolerance, int maxIterations, double initialStep, double stepReduction)
+        public GaussResult Optimize(
+            Func<double[], double> func,
+            double[] initialPoint,
+            double tolerance,
+            int maxIterations,
+            double initialStep,
+            double stepReduction)
         {
             int n = initialPoint.Length;
 
@@ -56,11 +55,8 @@ namespace Lab1.Methods
                     }
                 }
 
-                result.IterationLog.Add($"{iteration}: " +
-                    $"u1 = {currentPoint[0]:F3}; " +
-                    $"u2 = {currentPoint[1]:F3}; " +
-                    $"I = {currentValue:F4}; " +
-                    $"h = {step}");
+                result.IterationLog.Add(
+                    $"{iteration}: k = {FormatPoint(currentPoint)}; I = {FormatNumber(currentValue)}; h = {FormatNumber(step)}");
 
                 if (!movedInCycle)
                 {
@@ -84,12 +80,17 @@ namespace Lab1.Methods
             return result;
         }
 
-        public static double Variant1Function(double[] u)
+        private static string FormatPoint(double[] point)
         {
-            double u1 = u[0];
-            double u2 = u[1];
+            return "[" + string.Join("; ", point.Select((v, i) => $"k{i + 1}={FormatNumber(v)}")) + "]";
+        }
 
-            return u1 * u1 + u1 * u2 + u2 * u2 * u2 + u1;
+        private static string FormatNumber(double value)
+        {
+            if (Math.Abs(value) < 1e-12)
+                value = 0;
+
+            return value.ToString("0.############");
         }
     }
 

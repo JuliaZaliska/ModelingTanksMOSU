@@ -1,6 +1,7 @@
 ﻿using Lab1.Blocks;
 using Lab1.Methods;
 using System.Text;
+using System.Windows.Forms.DataVisualization.Charting;
 
 namespace Lab1
 {
@@ -53,10 +54,7 @@ namespace Lab1
             tank2.z = z2;
 
             time = 0;
-            chMain.Series[0].Points.Clear();
-            chMain.Series[1].Points.Clear();
-            chMain.Series[2].Points.Clear();
-            chMain.Series[3].Points.Clear();
+            ClearAllChartPoints();
 
             lbCurrentZ1.Text = $"Current z1: {z1:F2}";
             lbCurrentZ2.Text = $"Current z2: {z2:F2}";
@@ -104,10 +102,8 @@ namespace Lab1
             lbCurrentZ1.Text = $"Current z1: {z1:F2}";
             lbCurrentZ2.Text = $"Current z2: {z2:F2}";
 
-            chMain.Series[0].Points.Clear();
-            chMain.Series[1].Points.Clear();
-            chMain.Series[2].Points.Clear();
-            chMain.Series[3].Points.Clear();
+            ClearAllChartPoints();
+            ClearParamFields();
         }
 
         private void tmModel_Tick(object sender, EventArgs e)
@@ -186,6 +182,27 @@ namespace Lab1
             lb.Text = $"{x:F1}";
         }
 
+        private void ClearAllChartPoints()
+        {
+            foreach (Series series in chMain.Series)
+            {
+                series.Points.Clear();
+            }
+        }
+        private void ClearParamFields()
+        {
+            tbSetKp1.Clear();
+            tbSetKi1.Clear();
+            tbSetKd1.Clear();
+
+            tbSetKp2.Clear();
+            tbSetKi2.Clear();
+            tbSetKd2.Clear();
+
+/*          tbSetPointZ1.Clear();
+            tbSetPointZ2.Clear();*/
+        }
+
         private void btnSpeed1_Click(object sender, EventArgs e)
         {
             tmModel.Interval = 100;
@@ -206,38 +223,317 @@ namespace Lab1
 
         private void btnOptimize_Click(object sender, EventArgs e)
         {
+            tmModel.Stop();
+
+            double.TryParse(tbSetZ1.Text, out double startZ1);
+            double.TryParse(tbSetZ2.Text, out double startZ2);
+
+            double.TryParse(tbSetPointZ1.Text, out double targetZ1);
+            double.TryParse(tbSetPointZ2.Text, out double targetZ2);
+
+            double.TryParse(tbSetKp1.Text, out double startKp1);
+            double.TryParse(tbSetKi1.Text, out double startKi1);
+            double.TryParse(tbSetKd1.Text, out double startKd1);
+
+            double.TryParse(tbSetKp2.Text, out double startKp2);
+            double.TryParse(tbSetKi2.Text, out double startKi2);
+            double.TryParse(tbSetKd2.Text, out double startKd2);
+
+            if (targetZ1 <= 0)
+            {
+                targetZ1 = 2;
+                tbSetPointZ1.Text = targetZ1.ToString("0.####");
+            }
+
+            if (targetZ2 <= 0)
+            {
+                targetZ2 = 4;
+                tbSetPointZ2.Text = targetZ2.ToString("0.####");
+            }
+
+            double[] startParameters =
+            {
+                startKp1, startKi1, startKd1,
+                startKp2, startKi2, startKd2
+            };
+
+            var settings = new SynthesisSettings
+            {
+                Dt = dt,
+                MaxTime = 15,
+                Alpha = 0,
+
+                StartZ1 = startZ1,
+                StartZ2 = startZ2,
+
+                Setpoint1 = targetZ1,
+                Setpoint2 = targetZ2,
+
+                Xout2 = x_out2 > 0 ? x_out2 : 0.5,
+
+                MinZ = min_z,
+                MaxZ1 = max_z1,
+                MaxZ2 = max_z2
+            };
+
             var gaussMethod = new GaussMethod();
 
-            double[] initialPoint = { -5, 5 };
             double tolerance = 1e-6;
             int maxIterations = 1000;
             double initialStep = 0.1;
             double stepReduction = 0.5;
-            
-            GaussResult result = gaussMethod.Optimize(GaussMethod.Variant1Function, initialPoint, tolerance, maxIterations, initialStep, stepReduction);
+
+            double startIntegralCriterionZ1 = Criterion.Calculate(
+                startParameters,
+                settings,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z1);
+
+            double startIntegralCriterionZ2 = Criterion.Calculate(
+                startParameters,
+                settings,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z2);
+
+            double startDynamicCriterionZ1 = Criterion.Calculate(
+                startParameters,
+                settings,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z1);
+
+            double startDynamicCriterionZ2 = Criterion.Calculate(
+                startParameters,
+                settings,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z2);
+
+            GaussResult integralPid1Result = OptimizeSinglePid(
+                gaussMethod,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z1,
+                startParameters,
+                settings,
+                tolerance,
+                maxIterations,
+                initialStep,
+                stepReduction);
+
+            double[] integralAfterPid1 = ReplacePidParameters(
+                startParameters,
+                integralPid1Result.BestPoint,
+                CriterionTarget.Z1);
+
+            GaussResult integralPid2Result = OptimizeSinglePid(
+                gaussMethod,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z2,
+                integralAfterPid1,
+                settings,
+                tolerance,
+                maxIterations,
+                initialStep,
+                stepReduction);
+
+            double[] integralBestParameters = ReplacePidParameters(
+                integralAfterPid1,
+                integralPid2Result.BestPoint,
+                CriterionTarget.Z2);
+
+            GaussResult dynamicPid1Result = OptimizeSinglePid(
+                gaussMethod,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z1,
+                startParameters,
+                settings,
+                tolerance,
+                maxIterations,
+                initialStep,
+                stepReduction);
+
+            double[] dynamicAfterPid1 = ReplacePidParameters(
+                startParameters,
+                dynamicPid1Result.BestPoint,
+                CriterionTarget.Z1);
+
+            GaussResult dynamicPid2Result = OptimizeSinglePid(
+                gaussMethod,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z2,
+                dynamicAfterPid1,
+                settings,
+                tolerance,
+                maxIterations,
+                initialStep,
+                stepReduction);
+
+            double[] dynamicBestParameters = ReplacePidParameters(
+                dynamicAfterPid1,
+                dynamicPid2Result.BestPoint,
+                CriterionTarget.Z2);
+
+            double finalIntegralCriterionZ1 = Criterion.Calculate(
+                integralBestParameters,
+                settings,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z1);
+
+            double finalIntegralCriterionZ2 = Criterion.Calculate(
+                integralBestParameters,
+                settings,
+                CriterionType.IntegralSquare,
+                CriterionTarget.Z2);
+
+            double finalDynamicCriterionZ1 = Criterion.Calculate(
+                dynamicBestParameters,
+                settings,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z1);
+
+            double finalDynamicCriterionZ2 = Criterion.Calculate(
+                dynamicBestParameters,
+                settings,
+                CriterionType.DynamicDeviation,
+                CriterionTarget.Z2);
+
+            ShowProcesses(startParameters, integralBestParameters, settings);
+
+            tbSetKp1.Text = integralBestParameters[0].ToString("0.####");
+            tbSetKi1.Text = integralBestParameters[1].ToString("0.####");
+            tbSetKd1.Text = integralBestParameters[2].ToString("0.####");
+
+            tbSetKp2.Text = integralBestParameters[3].ToString("0.####");
+            tbSetKi2.Text = integralBestParameters[4].ToString("0.####");
+            tbSetKd2.Text = integralBestParameters[5].ToString("0.####");
 
             var message = new StringBuilder();
 
-            message.AppendLine("Метод Гауса");
-            message.AppendLine("Цільова функція: I = u1^2 + u1*u2 + u2^3 + u1");
-            message.AppendLine($"Початкова точка: u1(0) = {initialPoint[0]}, u2(0) = {initialPoint[1]}");
+            message.AppendLine("Регулятори налаштовуються окремо:");
+            message.AppendLine("PID1: k1 = [Kp1, Ki1, Kd1]");
+            message.AppendLine("PID2: k2 = [Kp2, Ki2, Kd2]");
+            message.AppendLine("Під час оптимізації одного PID-регулятора параметри іншого залишаються сталими.");
             message.AppendLine();
-            message.AppendLine($"Параметри пошуку: h = {initialStep}, eps = {tolerance:E1}, maxIterations = {maxIterations}");
-            message.AppendLine();
-            message.AppendLine($"Результат: u1* = {result.BestPoint[0]}, u2* = {result.BestPoint[1]}");
-            message.AppendLine($"Imin = {result.BestValue}");
-            message.AppendLine($"Кількість ітерацій = {result.Iterations}");
-            message.AppendLine($"Остаточний крок = {result.FinalStep:E2}");
-            message.AppendLine($"Збіжність = {(result.Converged ? "так" : "ні")}");
-            message.AppendLine();
-            message.AppendLine("Журнал ітерацій:");
 
-            foreach (string line in result.IterationLog)
-            {
-                message.AppendLine(line);
-            }
-            
-            MessageBox.Show(message.ToString(), "Результати оптимізації");
+            message.AppendLine("Початкові параметри:");
+            message.AppendLine(FormatPidParameters(startParameters));
+            message.AppendLine("Задані значення уставок:");
+            message.AppendLine($"Setpoint z1 = {targetZ1:0.####}");
+            message.AppendLine($"Setpoint z2 = {targetZ2:0.####}");
+            message.AppendLine();
+
+            message.AppendLine("Оптимізація за інтегральним квадратичним критерієм:");
+            message.AppendLine($"I1поч = {startIntegralCriterionZ1:0.####}");
+            message.AppendLine($"I1опт = {finalIntegralCriterionZ1:0.####}");
+            message.AppendLine($"Ітерацій PID1 = {integralPid1Result.Iterations}");
+            message.AppendLine($"Збіжність PID1 = {(integralPid1Result.Converged ? "так" : "ні")}");
+            message.AppendLine();
+            message.AppendLine($"I2поч = {startIntegralCriterionZ2:0.####}");
+            message.AppendLine($"I2опт = {finalIntegralCriterionZ2:0.####}");
+            message.AppendLine($"Ітерацій PID2 = {integralPid2Result.Iterations}");
+            message.AppendLine($"Збіжність PID2 = {(integralPid2Result.Converged ? "так" : "ні")}");
+            message.AppendLine("Оптимальні параметри:");
+            message.AppendLine(FormatPidParameters(integralBestParameters));
+            message.AppendLine();
+
+            message.AppendLine("Оптимізація за мінімальним динамічним відхиленням:");
+            message.AppendLine($"D1поч = {startDynamicCriterionZ1:0.####}");
+            message.AppendLine($"D1опт = {finalDynamicCriterionZ1:0.####}");
+            message.AppendLine($"Ітерацій PID1 = {dynamicPid1Result.Iterations}");
+            message.AppendLine($"Збіжність PID1 = {(dynamicPid1Result.Converged ? "так" : "ні")}");
+            message.AppendLine();
+            message.AppendLine($"D2поч = {startDynamicCriterionZ2:0.####}");
+            message.AppendLine($"D2опт = {finalDynamicCriterionZ2:0.####}");
+            message.AppendLine($"Ітерацій PID2 = {dynamicPid2Result.Iterations}");
+            message.AppendLine($"Збіжність PID2 = {(dynamicPid2Result.Converged ? "так" : "ні")}");
+            message.AppendLine("Оптимальні параметри:");
+            message.AppendLine(FormatPidParameters(dynamicBestParameters));
+
+            MessageBox.Show(message.ToString(), "Результати параметричного синтезу системи регулювання");
         }
+
+        private GaussResult OptimizeSinglePid(
+            GaussMethod gaussMethod,
+            CriterionType criterionType,
+            CriterionTarget target,
+            double[] baseParameters,
+            SynthesisSettings settings,
+            double tolerance,
+            int maxIterations,
+            double initialStep,
+            double stepReduction)
+        {
+            int offset = target == CriterionTarget.Z1 ? 0 : 3;
+
+            double[] startPidParameters =
+            {
+                baseParameters[offset],
+                baseParameters[offset + 1],
+                baseParameters[offset + 2]
+            };
+
+            return gaussMethod.Optimize(
+                pidParameters => Criterion.Calculate(
+                    ReplacePidParameters(baseParameters, pidParameters, target),
+                    settings,
+                    criterionType,
+                    target),
+                startPidParameters,
+                tolerance,
+                maxIterations,
+                initialStep,
+                stepReduction);
+        }
+
+        private double[] ReplacePidParameters(
+            double[] baseParameters,
+            double[] pidParameters,
+            CriterionTarget target)
+        {
+            double[] result = (double[])baseParameters.Clone();
+
+            int offset = target == CriterionTarget.Z1 ? 0 : 3;
+
+            result[offset] = pidParameters[0];
+            result[offset + 1] = pidParameters[1];
+            result[offset + 2] = pidParameters[2];
+
+            return result;
+        }
+
+        private string FormatPidParameters(double[] p)
+        {
+            return
+                $"Kp1 = {p[0]:0.####}, Ki1 = {p[1]:0.####}, Kd1 = {p[2]:0.####}\n" +
+                $"Kp2 = {p[3]:0.####}, Ki2 = {p[4]:0.####}, Kd2 = {p[5]:0.####}";
+        }
+
+        private void ShowProcesses(double[] beforeParameters, double[] afterParameters, SynthesisSettings settings)
+        {
+            SimulationResult before = Criterion.Simulate(beforeParameters, settings);
+            SimulationResult after = Criterion.Simulate(afterParameters, settings);
+
+            ClearAllChartPoints();
+
+            Series z1Before = chMain.Series[4];
+            Series z2Before = chMain.Series[5];
+            Series z1After = chMain.Series[6];
+            Series z2After = chMain.Series[7];
+            Series setpoint1Series = chMain.Series[8];
+            Series setpoint2Series = chMain.Series[9];
+
+            for (int i = 0; i < before.Time.Count; i++)
+            {
+                double t = before.Time[i];
+
+                z1Before.Points.AddXY(t, before.Z1[i]);
+                z2Before.Points.AddXY(t, before.Z2[i]);
+
+                z1After.Points.AddXY(t, after.Z1[i]);
+                z2After.Points.AddXY(t, after.Z2[i]);
+
+                setpoint1Series.Points.AddXY(t, settings.Setpoint1);
+                setpoint2Series.Points.AddXY(t, settings.Setpoint2);
+            }
+        }
+
     }
 }
